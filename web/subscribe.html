@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>订阅日报 - PharmaPulse</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">&#x1F48A;</span>
+        <span class="logo-text">PharmaPulse</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html" class="nav-link">今日日报</a>
+        <a href="archive.html" class="nav-link">历史归档</a>
+        <a href="about.html" class="nav-link">关于</a>
+      </nav>
+      <div class="header-actions">
+        <a href="subscribe.html" class="btn btn-subscribe">订阅日报</a>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="index.html" class="nav-link">今日日报</a>
+      <a href="archive.html" class="nav-link">历史归档</a>
+      <a href="about.html" class="nav-link">关于</a>
+      <a href="subscribe.html" class="nav-link active">订阅日报</a>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <section class="page-section">
+        <h1 class="page-title">订阅每日日报</h1>
+        <p class="page-subtitle">每天早 8:00（北京时间）将精选医药资讯送达你的邮箱</p>
+
+        <div class="content-card">
+          <h3>邮件日报包含</h3>
+          <ul>
+            <li>当日高重要度事件摘要（FDA 审批、重大临床数据等）</li>
+            <li>按分类整理的全部新闻列表</li>
+            <li>每条新闻的 AI 中文摘要和原文链接</li>
+            <li>一键查看完整网页版日报</li>
+          </ul>
+        </div>
+
+        <div class="content-card">
+          <h3>填写订阅信息</h3>
+          <form class="subscribe-form" id="subscribeForm">
+            <div class="form-group">
+              <label for="email">邮箱地址 *</label>
+              <input type="email" id="email" name="email" placeholder="your@email.com" required>
+            </div>
+
+            <div class="form-group">
+              <label for="name">称呼（选填）</label>
+              <input type="text" id="name" name="name" placeholder="你的名字">
+            </div>
+
+            <div class="form-group">
+              <label>感兴趣的分类</label>
+              <div class="checkbox-group">
+                <label><input type="checkbox" name="category" value="regulatory" checked> 政策监管</label>
+                <label><input type="checkbox" name="category" value="clinical" checked> 临床研究</label>
+                <label><input type="checkbox" name="category" value="corporate" checked> 企业动态</label>
+                <label><input type="checkbox" name="category" value="market" checked> 市场动态</label>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-submit">提交订阅</button>
+          </form>
+
+          <div id="subscribeResult" style="margin-top: 20px; display: none;"></div>
+        </div>
+
+        <div class="content-card">
+          <h3>其他订阅方式</h3>
+          <p>你也可以通过 RSS 订阅获取更新：</p>
+          <p><a href="/web/rss.xml" style="font-weight: 600;">RSS Feed 地址 &rarr;</a></p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
+            将 RSS 链接添加到 Feedly、Inoreader 等 RSS 阅读器即可。
+          </p>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-icon">&#x1F48A;</span>
+        <span class="footer-name">PharmaPulse</span>
+        <p class="footer-desc">医药行业全球动向每日新闻推送</p>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 PharmaPulse. 数据来源为公开资讯，仅供参考。</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // 移动端菜单
+    var btn = document.getElementById("mobileMenuBtn");
+    var menu = document.getElementById("mobileMenu");
+    if (btn) btn.addEventListener("click", function () { menu.classList.toggle("show"); });
+
+    // 订阅表单（MVP 暂存 localStorage，后续接入 Resend API）
+    var form = document.getElementById("subscribeForm");
+    var result = document.getElementById("subscribeResult");
+
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        var email = document.getElementById("email").value.trim();
+        var name = document.getElementById("name").value.trim();
+        var categories = [];
+        document.querySelectorAll('input[name="category"]:checked').forEach(function (cb) {
+          categories.push(cb.value);
+        });
+
+        if (!email) {
+          showResult("error", "请输入邮箱地址");
+          return;
+        }
+
+        // MVP: 保存到 localStorage
+        var subscribers = JSON.parse(localStorage.getItem("pp_subscribers") || "[]");
+        var existing = subscribers.find(function (s) { return s.email === email; });
+
+        if (existing) {
+          existing.name = name;
+          existing.categories = categories;
+          existing.updatedAt = new Date().toISOString();
+          showResult("success", "订阅偏好已更新！我们将每天早 8:00 发送日报到 " + email);
+        } else {
+          subscribers.push({
+            email: email,
+            name: name,
+            categories: categories,
+            subscribedAt: new Date().toISOString(),
+          });
+          showResult("success", "订阅成功！我们将每天早 8:00 发送日报到 " + email);
+        }
+
+        localStorage.setItem("pp_subscribers", JSON.stringify(subscribers));
+        form.reset();
+        // 重新勾选所有 checkbox
+        document.querySelectorAll('input[name="category"]').forEach(function (cb) { cb.checked = true; });
+      });
+    }
+
+    function showResult(type, msg) {
+      result.style.display = "block";
+      result.style.padding = "16px";
+      result.style.borderRadius = "8px";
+      result.style.fontSize = "0.9rem";
+      result.style.fontWeight = "500";
+
+      if (type === "success") {
+        result.style.background = "#F0FFF4";
+        result.style.color = "#276749";
+        result.style.border = "1px solid #C6F6D5";
+      } else {
+        result.style.background = "#FFF5F5";
+        result.style.color = "#C53030";
+        result.style.border = "1px solid #FED7D7";
+      }
+
+      result.textContent = msg;
+    }
+  </script>
+</body>
+</html>

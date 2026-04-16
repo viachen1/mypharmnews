@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>历史归档 - PharmaPulse</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="header">
+    <div class="container header-inner">
+      <a href="/" class="logo">
+        <span class="logo-icon">💊</span>
+        <span class="logo-text">PharmaPulse</span>
+      </a>
+      <nav class="nav">
+        <a href="/" class="nav-link">今日日报</a>
+        <a href="/archive.html" class="nav-link active">历史归档</a>
+        <a href="/about.html" class="nav-link">关于</a>
+      </nav>
+      <div class="header-actions"></div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="/" class="nav-link">今日日报</a>
+      <a href="/archive.html" class="nav-link active">历史归档</a>
+      <a href="/about.html" class="nav-link">关于</a>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <section class="archive-section">
+        <h1 class="archive-title">📚 历史归档</h1>
+        <p class="archive-desc">浏览历史日报，选择日期查看当日医药行业资讯</p>
+
+        <div class="archive-date-input">
+          <input type="date" id="archiveDate">
+          <button class="btn-primary" id="archiveGoBtn">查看日报</button>
+        </div>
+
+        <h3 style="margin-bottom: 16px; color: var(--primary);">
+          历史日期
+          <span id="archiveCount" style="font-size: 0.85rem; font-weight: 400; color: var(--text-muted); margin-left: 8px;"></span>
+        </h3>
+        <div class="archive-list" id="archiveList">
+          <p style="color: var(--text-muted);">正在加载索引...</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-icon">💊</span>
+        <span class="footer-name">PharmaPulse</span>
+        <p class="footer-desc">医药行业全球动向每日新闻推送</p>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 PharmaPulse. 数据来源为公开资讯，仅供参考。</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var mobileMenuBtn = document.getElementById("mobileMenuBtn");
+      var mobileMenu = document.getElementById("mobileMenu");
+      if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener("click", function () {
+          mobileMenu.classList.toggle("show");
+        });
+      }
+
+      var archiveDate = document.getElementById("archiveDate");
+      var archiveGoBtn = document.getElementById("archiveGoBtn");
+      var archiveList = document.getElementById("archiveList");
+      var archiveCount = document.getElementById("archiveCount");
+
+      // 设置默认日期为今天
+      var now = new Date();
+      var utc8 = new Date(now.getTime() + 8 * 3600 * 1000);
+      var today = utc8.toISOString().slice(0, 10);
+      if (archiveDate) archiveDate.value = today;
+
+      // 手动跳转按钮
+      if (archiveGoBtn) {
+        archiveGoBtn.addEventListener("click", function () {
+          var d = archiveDate.value;
+          if (d) window.location.href = "/?date=" + d;
+        });
+      }
+
+      // 从 index.json 加载可用日期列表
+      fetch("/data/index.json")
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          return resp.json();
+        })
+        .then(function (indexData) {
+          renderArchiveList(indexData);
+        })
+        .catch(function (err) {
+          console.warn("索引加载失败:", err.message);
+          archiveList.innerHTML = '<p style="color: var(--text-muted);">暂无历史数据</p>';
+        });
+
+      function renderArchiveList(indexData) {
+        var dates = indexData.dates || [];
+
+        if (archiveCount) {
+          archiveCount.textContent = "共 " + dates.length + " 天";
+        }
+
+        if (dates.length === 0) {
+          archiveList.innerHTML = '<p style="color: var(--text-muted);">暂无历史数据</p>';
+          return;
+        }
+
+        archiveList.innerHTML = dates
+          .map(function (entry) {
+            var date = entry.date;
+            var total = entry.total || 0;
+            var stats = entry.stats || {};
+            var byCategory = stats.by_category || {};
+
+            var reg = byCategory.regulatory || 0;
+            var cli = byCategory.clinical || 0;
+            var cor = byCategory.corporate || 0;
+            var mkt = byCategory.market || 0;
+
+            // 格式化日期为中文
+            var d = new Date(date + "T00:00:00");
+            var weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+            var displayDate = (d.getMonth() + 1) + "月" + d.getDate() + "日 " + weekdays[d.getDay()];
+
+            return (
+              '<a href="/?date=' + date + '" class="archive-item">' +
+                '<div>' +
+                  '<span class="archive-item-date">' + date + '</span>' +
+                  '<span style="font-size:0.8rem; color:var(--text-muted); margin-left:8px;">' + displayDate + '</span>' +
+                '</div>' +
+                '<div class="archive-item-stats">' +
+                  '<span class="archive-item-total">' + total + ' 条资讯</span>' +
+                  '<span class="archive-item-breakdown">' +
+                    '📋' + reg + ' 🔬' + cli + ' 🏢' + cor + ' 📈' + mkt +
+                  '</span>' +
+                '</div>' +
+              '</a>'
+            );
+          })
+          .join("");
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>关于 - PharmaPulse</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <a href="/" class="logo">
+        <span class="logo-icon">&#x1F48A;</span>
+        <span class="logo-text">PharmaPulse</span>
+      </a>
+      <nav class="nav">
+        <a href="/" class="nav-link">今日日报</a>
+        <a href="/archive.html" class="nav-link">历史归档</a>
+        <a href="/about.html" class="nav-link active">关于</a>
+      </nav>
+      <div class="header-actions"></div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="/" class="nav-link">今日日报</a>
+      <a href="/archive.html" class="nav-link">历史归档</a>
+      <a href="/about.html" class="nav-link active">关于</a>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+      <section class="page-section">
+        <h1 class="page-title">关于 PharmaPulse</h1>
+        <p class="page-subtitle">自动聚合全球医药行业资讯，AI 生成中文摘要，助你每天 10 分钟掌握行业动向</p>
+
+        <div class="content-card">
+          <h3>产品介绍</h3>
+          <p>
+            <strong>PharmaPulse</strong> 是一款面向医药行业从业者、投资人及研究人员的每日新闻聚合产品。
+            我们自动抓取全球主流医药行业资讯源，经过去重、分类、AI 中文摘要处理后，
+            以结构化的方式呈现，帮助你高效获取关键信息。
+          </p>
+          <p>每日新闻按四大维度分类：</p>
+          <ul>
+            <li><strong>政策监管</strong> — FDA/EMA 审批、召回、监管政策变化</li>
+            <li><strong>临床研究</strong> — 临床试验进展、关键数据发布</li>
+            <li><strong>企业动态</strong> — 并购、合作、高管变动、财报</li>
+            <li><strong>市场动态</strong> — 新药上市、专利、定价、市场趋势</li>
+          </ul>
+        </div>
+
+        <div class="content-card">
+          <h3>数据来源</h3>
+          <p>我们从以下公开资讯渠道自动抓取数据：</p>
+          <table class="source-table">
+            <thead>
+              <tr>
+                <th>来源</th>
+                <th>类型</th>
+                <th>内容侧重</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>FDA 美国食品药品监督管理局</td><td>RSS</td><td>药物审批、召回、官方公告</td></tr>
+              <tr><td>EMA 欧洲药品管理局</td><td>RSS</td><td>欧洲药品监管动态</td></tr>
+              <tr><td>STAT News</td><td>RSS</td><td>专业医药深度报道</td></tr>
+              <tr><td>BioPharma Dive</td><td>RSS</td><td>生物医药行业新闻</td></tr>
+              <tr><td>FiercePharma</td><td>RSS</td><td>制药行业快讯</td></tr>
+              <tr><td>Reuters Health</td><td>RSS</td><td>综合健康医药新闻</td></tr>
+              <tr><td>NewsAPI / GNews</td><td>API</td><td>全球主流媒体补充</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="content-card">
+          <h3>AI 中文摘要</h3>
+          <p>
+            每条新闻均由 AI 自动生成 2-4 句中文摘要，帮助降低英文阅读门槛。
+            摘要力求准确、简洁、专业，保留原文关键数据和结论。
+          </p>
+          <p>
+            AI 摘要仅供参考，如需详细信息请点击"阅读原文"查看完整报道。
+          </p>
+        </div>
+
+        <div class="content-card">
+          <h3>免责声明</h3>
+          <p>
+            PharmaPulse 所展示的新闻内容均来源于公开可访问的资讯渠道，我们不对内容的准确性、完整性或时效性做出保证。
+          </p>
+          <p>
+            本站展示的信息不构成投资建议、医疗建议或其他专业建议。
+            用户应当自行判断并对使用本站信息所产生的后果承担责任。
+          </p>
+          <p>
+            所有新闻均保留原文链接，版权归原作者及出版机构所有。
+          </p>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-icon">&#x1F48A;</span>
+        <span class="footer-name">PharmaPulse</span>
+        <p class="footer-desc">医药行业全球动向每日新闻推送</p>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 PharmaPulse. 数据来源为公开资讯，仅供参考。</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    var btn = document.getElementById("mobileMenuBtn");
+    var menu = document.getElementById("mobileMenu");
+    if (btn) btn.addEventListener("click", function () { menu.classList.toggle("show"); });
+  </script>
+</body>
+</html>
