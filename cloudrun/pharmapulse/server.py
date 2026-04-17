@@ -277,6 +277,38 @@ class PharmaPulseHandler(SimpleHTTPRequestHandler):
             print(f"[SERVER] {msg}")
 
 
+def scheduled_refresh_loop():
+    """后台定时刷新线程：每天北京时间 07:00 自动运行数据流水线"""
+    from datetime import datetime as dt, timezone as tz, timedelta as td
+    tz_cn = tz(td(hours=8))
+    TRIGGER_HOUR = 7  # 北京时间触发小时
+
+    print(f"[SCHEDULER] 定时刷新已启动，每天北京时间 {TRIGGER_HOUR:02d}:00 自动刷新")
+
+    last_run_date = None  # 记录上次运行日期，避免同一天重复触发
+
+    while True:
+        try:
+            now_cn = dt.now(tz_cn)
+            today_str = now_cn.strftime("%Y-%m-%d")
+
+            # 到达触发时间 且 今天还没跑过
+            if now_cn.hour == TRIGGER_HOUR and last_run_date != today_str:
+                if not pipeline_status["running"]:
+                    print(f"[SCHEDULER] {today_str} 07:00 触发自动刷新...")
+                    last_run_date = today_str
+                    t = threading.Thread(target=run_pipeline, args=(False,), daemon=True)
+                    t.start()
+                else:
+                    print(f"[SCHEDULER] 流水线已在运行，跳过本次触发")
+
+            # 每分钟检查一次
+            time.sleep(60)
+        except Exception as e:
+            print(f"[SCHEDULER] 异常: {e}")
+            time.sleep(60)
+
+
 def main():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), PharmaPulseHandler)
@@ -290,7 +322,12 @@ def main():
     print(f"  Data: {DATA_DIR}")
     print(f"  API:  POST /api/refresh")
     print(f"  API:  GET  /api/status")
+    print(f"  CRON: 每天北京时间 07:00 自动刷新")
     print("=" * 50)
+
+    # 启动定时刷新后台线程
+    scheduler = threading.Thread(target=scheduled_refresh_loop, daemon=True)
+    scheduler.start()
 
     try:
         server.serve_forever()
