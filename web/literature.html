@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文献检索 - PharmaPulse</title>
+  <meta name="description" content="基于 Semantic Scholar 的医学文献搜索工具，覆盖 2 亿+ 论文，支持高级筛选、完整摘要、AI 一句话总结与引用格式复制。">
+  <link rel="stylesheet" href="/web/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="header">
+    <div class="container header-inner">
+      <a href="/web/index.html" class="logo">
+        <span class="logo-icon">💊</span>
+        <span class="logo-text">PharmaPulse</span>
+      </a>
+      <nav class="nav">
+        <a href="/web/index.html" class="nav-link">今日日报</a>
+        <a href="/web/literature.html" class="nav-link active">文献检索</a>
+        <a href="/web/archive.html" class="nav-link">历史归档</a>
+        <a href="/web/about.html" class="nav-link">关于</a>
+      </nav>
+      <div class="header-actions">
+        <button class="btn-theme-toggle" id="themeToggle" title="切换暗色/亮色模式" aria-label="切换主题">🌓</button>
+        <a href="/web/subscribe.html" class="btn btn-subscribe">订阅日报</a>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="/web/index.html" class="nav-link">今日日报</a>
+      <a href="/web/literature.html" class="nav-link active">文献检索</a>
+      <a href="/web/archive.html" class="nav-link">历史归档</a>
+      <a href="/web/about.html" class="nav-link">关于</a>
+      <a href="/web/subscribe.html" class="nav-link">订阅日报</a>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+
+      <!-- Hero 搜索区 -->
+      <section class="lit-hero">
+        <h1 class="lit-hero-title">医学文献检索</h1>
+        <p class="lit-hero-subtitle">基于 Semantic Scholar · 覆盖 2 亿+ 论文 · 含 AI 摘要、引用数、开放全文</p>
+
+        <div class="lit-search-wrap">
+          <div class="lit-search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="litSearchInput" class="lit-search-input"
+              placeholder="输入关键词，如 CRISPR, GLP-1, CAR-T therapy…"
+              autocomplete="off" spellcheck="false">
+            <button class="lit-search-btn" id="litSearchBtn">搜索</button>
+          </div>
+
+          <!-- 高级搜索折叠面板 -->
+          <div class="lit-advanced-toggle" id="advancedToggle">
+            <button class="btn-link" id="advancedToggleBtn">⚙ 高级筛选</button>
+          </div>
+          <div class="lit-advanced-panel" id="advancedPanel" style="display:none;">
+            <div class="lit-advanced-grid">
+              <div class="lit-filter-group">
+                <label>发表时间范围</label>
+                <div class="lit-date-range">
+                  <input type="date" id="dateFrom" class="lit-date-input" placeholder="开始日期">
+                  <span class="lit-date-sep">—</span>
+                  <input type="date" id="dateTo" class="lit-date-input" placeholder="结束日期">
+                </div>
+              </div>
+              <div class="lit-filter-group">
+                <label>文章类型</label>
+                <select id="articleType" class="select-filter">
+                  <option value="">全部</option>
+                  <option value="review">综述 (Review)</option>
+                  <option value="clinical trial">临床试验 (Clinical Trial)</option>
+                  <option value="meta-analysis">荟萃分析 (Meta-Analysis)</option>
+                  <option value="randomized controlled trial">随机对照试验 (RCT)</option>
+                  <option value="case reports">病案报告 (Case Reports)</option>
+                </select>
+              </div>
+              <div class="lit-filter-group">
+                <label>排序方式</label>
+                <select id="sortOrder" class="select-filter">
+                  <option value="relevance">相关度（默认）</option>
+                  <option value="date">最新发表</option>
+                  <option value="pubdate">入库时间</option>
+                </select>
+              </div>
+              <div class="lit-filter-group lit-preset-btns">
+                <label>快速时间范围</label>
+                <div class="preset-btn-group">
+                  <button class="btn-preset" data-years="1">近1年</button>
+                  <button class="btn-preset" data-years="3">近3年</button>
+                  <button class="btn-preset" data-years="5">近5年</button>
+                  <button class="btn-preset" data-years="10">近10年</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 热门主题快捷入口 -->
+        <div class="lit-hot-topics">
+          <span class="hot-label">热门主题：</span>
+          <button class="hot-tag" data-q="GLP-1 obesity">GLP-1</button>
+          <button class="hot-tag" data-q="CAR-T therapy cancer">CAR-T</button>
+          <button class="hot-tag" data-q="CRISPR gene editing">CRISPR</button>
+          <button class="hot-tag" data-q="Alzheimer disease treatment">阿尔茨海默</button>
+          <button class="hot-tag" data-q="mRNA vaccine">mRNA 疫苗</button>
+          <button class="hot-tag" data-q="immunotherapy checkpoint">免疫治疗</button>
+        </div>
+      </section>
+
+      <!-- 结果区 -->
+      <section class="lit-results-section" id="litResultsSection" style="display:none;">
+
+        <!-- 结果统计栏 -->
+        <div class="lit-results-header">
+          <p class="lit-results-count" id="litResultsCount"></p>
+          <div class="lit-results-actions">
+            <button class="btn-link" id="litExpandAllBtn">全部展开</button>
+          </div>
+        </div>
+
+        <!-- 文献列表 -->
+        <div class="lit-list" id="litList"></div>
+
+        <!-- 分页 -->
+        <div class="lit-pagination" id="litPagination"></div>
+      </section>
+
+      <!-- 趋势图区 -->
+      <section class="lit-trends-section" id="litTrendsSection" style="display:none;">
+        <div class="lit-trends-card">
+          <div class="lit-trends-header">
+            <h3 class="lit-trends-title" id="litTrendsTitle">发文趋势</h3>
+            <span class="lit-trends-badge">近 10 年</span>
+          </div>
+          <div class="lit-trends-chart-wrap">
+            <canvas id="trendsChart" height="80"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- 空状态 -->
+      <div class="empty-state" id="litEmptyState" style="display:none;">
+        <div class="empty-icon">📭</div>
+        <p class="empty-title">未找到相关文献</p>
+        <p class="empty-subtitle">请尝试换用其他关键词，或取消部分筛选条件</p>
+      </div>
+
+      <!-- 加载状态 -->
+      <div class="loading" id="litLoadingState" style="display:none;">
+        <div class="spinner"></div>
+        <p>正在检索 PubMed…</p>
+      </div>
+
+      <!-- 错误状态 -->
+      <div class="error-state" id="litErrorState" style="display:none;">
+        <div class="error-icon">⚠️</div>
+        <p class="error-title">检索出错</p>
+        <p class="error-msg" id="litErrorMsg">请稍后重试</p>
+      </div>
+
+      <!-- 初始提示（未搜索时） -->
+      <div class="lit-intro" id="litIntro">
+        <div class="lit-intro-grid">
+          <div class="lit-intro-card">
+            <div class="lit-intro-icon">🔬</div>
+            <h4>海量文献</h4>
+            <p>覆盖 Semantic Scholar 2 亿+ 篇学术论文，涵盖医学、生物、化学等领域</p>
+          </div>
+          <div class="lit-intro-card">
+            <div class="lit-intro-icon">🤖</div>
+            <h4>AI 一句话总结</h4>
+            <p>每篇文献提供 AI 生成的 TLDR 摘要，快速了解研究核心</p>
+          </div>
+          <div class="lit-intro-card">
+            <div class="lit-intro-icon">🔗</div>
+            <h4>引用统计</h4>
+            <p>展示被引次数，快速识别高影响力研究，Open Access 文献直链全文</p>
+          </div>
+          <div class="lit-intro-card">
+            <div class="lit-intro-icon">📝</div>
+            <h4>一键引用</h4>
+            <p>支持 APA、Vancouver 格式，一键复制，写作不再费时</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- 文献详情弹窗 -->
+  <div class="modal-overlay" id="articleModal" style="display:none;" role="dialog" aria-modal="true">
+    <div class="modal-panel" id="articleModalPanel">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">加载中…</h2>
+        <button class="modal-close" id="modalClose" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <div class="loading"><div class="spinner"></div><p>正在加载详情…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-icon">💊</span>
+        <span class="footer-name">PharmaPulse</span>
+        <p class="footer-desc">医药行业全球动向每日新闻推送</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>导航</h4>
+          <a href="/web/index.html">今日日报</a>
+          <a href="/web/literature.html">文献检索</a>
+          <a href="/web/archive.html">历史归档</a>
+          <a href="/web/about.html">关于我们</a>
+        </div>
+        <div class="footer-col">
+          <h4>订阅</h4>
+          <a href="/web/subscribe.html">邮件订阅</a>
+          <a href="/web/rss.xml">RSS Feed</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 PharmaPulse · 文献数据来源：<a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/web/js/literature.js?v=1"></script>
+</body>
+</html>

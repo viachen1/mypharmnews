@@ -19,10 +19,12 @@
       </a>
       <nav class="nav">
         <a href="/web/index.html" class="nav-link active">今日日报</a>
+        <a href="/web/literature.html" class="nav-link">文献检索</a>
         <a href="/web/archive.html" class="nav-link">历史归档</a>
         <a href="/web/about.html" class="nav-link">关于</a>
       </nav>
       <div class="header-actions">
+        <button class="btn-theme-toggle" id="themeToggle" title="切换暗色/亮色模式" aria-label="切换主题">🌓</button>
         <div class="date-nav">
           <button class="date-nav-btn" id="prevDay" title="前一天 (←)">◀</button>
           <input type="date" id="datePicker" class="date-picker" title="选择日期">
@@ -40,6 +42,7 @@
     <!-- 移动端菜单 -->
     <div class="mobile-menu" id="mobileMenu">
       <a href="/web/index.html" class="nav-link active">今日日报</a>
+      <a href="/web/literature.html" class="nav-link">文献检索</a>
       <a href="/web/archive.html" class="nav-link">历史归档</a>
       <a href="/web/about.html" class="nav-link">关于</a>
       <a href="/web/subscribe.html" class="nav-link">订阅日报</a>
@@ -256,6 +259,24 @@
     </div>
   </div>
 
+  <script>
+    // 暗色模式初始化（避免闪烁）
+    (function(){
+      var t = localStorage.getItem('pp-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      document.addEventListener('DOMContentLoaded', function(){
+        var btn = document.getElementById('themeToggle');
+        if(btn){ btn.textContent = t === 'dark' ? '☀️' : '🌓'; }
+        if(btn){ btn.addEventListener('click', function(){
+          var c = document.documentElement.getAttribute('data-theme') || 'light';
+          var n = c === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', n);
+          localStorage.setItem('pp-theme', n);
+          btn.textContent = n === 'dark' ? '☀️' : '🌓';
+        }); }
+      });
+    })();
+  </script>
   <script src="/web/js/app.js?v=2"></script>
 </body>
 </html>

@@ -15,22 +15,25 @@
         <span class="logo-text">PharmaPulse</span>
       </a>
       <nav class="nav">
-        <a href="index.html" class="nav-link">今日日报</a>
-        <a href="archive.html" class="nav-link">历史归档</a>
-        <a href="about.html" class="nav-link">关于</a>
+        <a href="/web/index.html" class="nav-link">今日日报</a>
+        <a href="/web/literature.html" class="nav-link">文献检索</a>
+        <a href="/web/archive.html" class="nav-link">历史归档</a>
+        <a href="/web/about.html" class="nav-link">关于</a>
       </nav>
       <div class="header-actions">
-        <a href="subscribe.html" class="btn btn-subscribe">订阅日报</a>
+        <button class="btn-theme-toggle" id="themeToggle" title="切换暗色/亮色模式" aria-label="切换主题">🌓</button>
+        <a href="/web/subscribe.html" class="btn btn-subscribe">订阅日报</a>
       </div>
       <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="菜单">
         <span></span><span></span><span></span>
       </button>
     </div>
     <div class="mobile-menu" id="mobileMenu">
-      <a href="index.html" class="nav-link">今日日报</a>
-      <a href="archive.html" class="nav-link">历史归档</a>
-      <a href="about.html" class="nav-link">关于</a>
-      <a href="subscribe.html" class="nav-link active">订阅日报</a>
+      <a href="/web/index.html" class="nav-link">今日日报</a>
+      <a href="/web/literature.html" class="nav-link">文献检索</a>
+      <a href="/web/archive.html" class="nav-link">历史归档</a>
+      <a href="/web/about.html" class="nav-link">关于</a>
+      <a href="/web/subscribe.html" class="nav-link active">订阅日报</a>
     </div>
   </header>
 
@@ -176,6 +179,10 @@
 
       result.textContent = msg;
     }
+  </script>
+  <script>
+    // 暗色模式
+    (function(){var t=localStorage.getItem('pp-theme')||'light';document.documentElement.setAttribute('data-theme',t);var tb=document.getElementById('themeToggle');if(tb){tb.textContent=t==='dark'?'☀️':'🌓';tb.addEventListener('click',function(){var c=document.documentElement.getAttribute('data-theme')||'light';var n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('pp-theme',n);tb.textContent=n==='dark'?'☀️':'🌓';});}})();
   </script>
 </body>
 </html>

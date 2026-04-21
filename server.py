@@ -1,6 +1,6 @@
 """
-PharmaPulse - 本地开发服务器
-提供静态文件服务 + 数据刷新 API
+PharmaPulse - 本地开发服务器（同步自线上版本）
+提供静态文件服务 + 数据刷新 API + 定时刷新
 启动: python server.py
 访问: http://localhost:8080
 """
@@ -11,20 +11,22 @@ import sys
 import threading
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 # Windows 控制台 UTF-8 输出
 if sys.platform == "win32":
     os.system("")  # enable ANSI on Windows
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 # 项目根目录
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS_DIR = os.path.join(ROOT_DIR, "scripts")
+WEB_DIR = os.path.join(ROOT_DIR, "web")
+DATA_DIR = os.path.join(ROOT_DIR, "data")
 
 # 运行状态
 pipeline_status = {
@@ -140,38 +142,70 @@ def run_pipeline(skip_ai=False):
 
 
 class PharmaPulseHandler(SimpleHTTPRequestHandler):
-    """自定义请求处理器：静态文件 + API"""
-
-    def __init__(self, *args, **kwargs):
-        # 以项目根目录作为静态文件根
-        super().__init__(*args, directory=ROOT_DIR, **kwargs)
+    """自定义请求处理器：静态文件 + API
+    
+    - /data/* → 从 data/ 目录提供 JSON 数据
+    - /api/*  → API 接口
+    - /*      → 从 web/ 目录提供前端静态文件
+    """
 
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        qs = parse_qs(parsed.query)
 
         # API: 获取流水线状态
         if path == "/api/status":
             self._json_response(pipeline_status)
             return
 
-        # 根路径重定向到 index.html
-        if path == "/" or path == "":
-            self.send_response(302)
-            self.send_header("Location", "/web/index.html")
-            self.end_headers()
+        # ── PubMed API 路由 ──────────────────────────────────
+        if path == "/api/pubmed/search":
+            self._handle_pubmed_search(qs)
             return
 
-        # 其他请求走静态文件服务
-        super().do_GET()
+        if path.startswith("/api/pubmed/article/"):
+            pmid = path[len("/api/pubmed/article/"):].strip("/")
+            self._handle_pubmed_article(pmid)
+            return
 
-    def end_headers(self):
-        """为所有动态文件禁用浏览器缓存，确保每次加载最新版本"""
-        # 对所有响应禁用缓存（开发环境），确保 JS/CSS/JSON 都不被缓存
-        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-        self.send_header("Pragma", "no-cache")
-        self.send_header("Expires", "0")
-        super().end_headers()
+        if path == "/api/pubmed/trends":
+            self._handle_pubmed_trends(qs)
+            return
+
+        # /data/* → 从 data/ 目录提供文件
+        if path.startswith("/data/"):
+            rel = path[len("/data/"):]
+            file_path = os.path.join(DATA_DIR, rel.split("?")[0])
+            self._serve_file(file_path, "application/json")
+            return
+
+        # 根路径 → index.html
+        if path == "/" or path == "":
+            file_path = os.path.join(WEB_DIR, "index.html")
+            self._serve_file(file_path, "text/html; charset=utf-8")
+            return
+
+        # /web/* → 从 web/ 目录提供静态文件（剥离 /web/ 前缀）
+        if path.startswith("/web/"):
+            rel_path = path[len("/web/"):]
+            file_path = os.path.join(WEB_DIR, rel_path)
+            if os.path.isfile(file_path):
+                content_type = self._guess_type(file_path)
+                self._serve_file(file_path, content_type)
+                return
+
+        # 尝试从 web/ 目录提供静态文件
+        rel_path = path.lstrip("/")
+        file_path = os.path.join(WEB_DIR, rel_path)
+
+        if os.path.isfile(file_path):
+            content_type = self._guess_type(file_path)
+            self._serve_file(file_path, content_type)
+            return
+
+        # 404
+        self.send_error(404, "Not Found")
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -208,16 +242,6 @@ class PharmaPulseHandler(SimpleHTTPRequestHandler):
 
         self.send_error(404, "Not Found")
 
-    def _json_response(self, data, status=200):
-        """返回 JSON 响应"""
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(body)
-
     def do_OPTIONS(self):
         """处理 CORS 预检请求"""
         self.send_response(200)
@@ -226,26 +250,201 @@ class PharmaPulseHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
+    def _handle_pubmed_search(self, qs: dict):
+        """GET /api/pubmed/search — 搜索文献（Semantic Scholar）"""
+        try:
+            if SCRIPTS_DIR not in sys.path:
+                sys.path.insert(0, SCRIPTS_DIR)
+            from semantic_scholar_api import search
+
+            q = qs.get("q", [""])[0].strip()
+            if not q:
+                self._json_response({"error": "缺少参数 q"}, 400)
+                return
+
+            page     = int(qs.get("page", ["1"])[0])
+            per_page = int(qs.get("per_page", ["20"])[0])
+            date_from = qs.get("date_from", [""])[0][:4]   # 只取年份
+            date_to   = qs.get("date_to",   [""])[0][:4]
+            # article_type 映射到 fieldsOfStudy
+            article_type = qs.get("article_type", [""])[0]
+            fields_map = {
+                "review": "Medicine",
+                "clinical trial": "Medicine",
+                "meta-analysis": "Medicine",
+            }
+            fields_of_study = fields_map.get(article_type, "")
+
+            result = search(
+                query=q,
+                page=page,
+                per_page=per_page,
+                year_from=date_from,
+                year_to=date_to,
+                fields_of_study=fields_of_study,
+            )
+            self._json_response({"ok": True, **result})
+        except Exception as e:
+            self._json_response({"ok": False, "error": str(e)}, 500)
+
+    def _handle_pubmed_article(self, paper_id: str):
+        """GET /api/pubmed/article/<paper_id> — 获取文献详情（Semantic Scholar）"""
+        if not paper_id:
+            self._json_response({"error": "无效的 paper_id"}, 400)
+            return
+        try:
+            if SCRIPTS_DIR not in sys.path:
+                sys.path.insert(0, SCRIPTS_DIR)
+            from semantic_scholar_api import get_paper
+            article = get_paper(paper_id)
+            self._json_response({"ok": True, "article": article})
+        except Exception as e:
+            self._json_response({"ok": False, "error": str(e)}, 500)
+
+    def _handle_pubmed_trends(self, qs: dict):
+        """GET /api/pubmed/trends — 获取关键词近 10 年发文量趋势（Semantic Scholar）"""
+        try:
+            if SCRIPTS_DIR not in sys.path:
+                sys.path.insert(0, SCRIPTS_DIR)
+            from semantic_scholar_api import get_trends, _cache_get
+
+            q = qs.get("q", [""])[0].strip()
+            if not q:
+                self._json_response({"error": "缺少参数 q"}, 400)
+                return
+
+            years = int(qs.get("years", ["10"])[0])
+
+            # 先检查缓存，有就立即返回
+            from datetime import datetime as _dt
+            cache_key = f"trends|{q}|{years}|{_dt.now().year}"
+            cached = _cache_get(cache_key)
+            if cached:
+                self._json_response({"ok": True, "query": q, "trends": cached, "cached": True})
+                return
+
+            # 没有缓存：在后台线程里跑，本次先返回 pending
+            # 前端会在收到 pending 后等 3 秒再重新请求
+            def _run():
+                try:
+                    get_trends(q, years)
+                except Exception:
+                    pass
+            t = threading.Thread(target=_run, daemon=True)
+            t.start()
+
+            self._json_response({"ok": True, "query": q, "trends": None, "pending": True})
+        except Exception as e:
+            self._json_response({"ok": False, "error": str(e)}, 500)
+
+
+
+
+
+    def _serve_file(self, file_path, content_type):
+        """提供文件内容"""
+        try:
+            with open(file_path, "rb") as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(data)
+        except FileNotFoundError:
+            self.send_error(404, "File not found")
+
+    def _json_response(self, data, status=200):
+        """返回 JSON 响应"""
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _guess_type(self, path):
+        """根据扩展名猜测 Content-Type"""
+        ext = os.path.splitext(path)[1].lower()
+        types = {
+            ".html": "text/html; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".json": "application/json; charset=utf-8",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".xml": "application/xml; charset=utf-8",
+            ".txt": "text/plain; charset=utf-8",
+        }
+        return types.get(ext, "application/octet-stream")
+
     def log_message(self, format, *args):
-        """自定义日志格式，过滤掉静态文件请求的刷屏"""
+        """自定义日志格式"""
         msg = format % args
         if "/api/" in msg or "404" in msg or "500" in msg:
             print(f"[SERVER] {msg}")
 
 
+def scheduled_refresh_loop():
+    """后台定时刷新线程：每天北京时间 07:00 自动运行数据流水线"""
+    from datetime import datetime as dt, timezone as tz, timedelta as td
+    tz_cn = tz(td(hours=8))
+    TRIGGER_HOUR = 7  # 北京时间触发小时
+
+    print(f"[SCHEDULER] 定时刷新已启动，每天北京时间 {TRIGGER_HOUR:02d}:00 自动刷新")
+
+    last_run_date = None  # 记录上次运行日期，避免同一天重复触发
+
+    while True:
+        try:
+            now_cn = dt.now(tz_cn)
+            today_str = now_cn.strftime("%Y-%m-%d")
+
+            # 到达触发时间 且 今天还没跑过
+            if now_cn.hour == TRIGGER_HOUR and last_run_date != today_str:
+                if not pipeline_status["running"]:
+                    print(f"[SCHEDULER] {today_str} 07:00 触发自动刷新...")
+                    last_run_date = today_str
+                    t = threading.Thread(target=run_pipeline, args=(False,), daemon=True)
+                    t.start()
+                else:
+                    print(f"[SCHEDULER] 流水线已在运行，跳过本次触发")
+
+            # 每分钟检查一次
+            time.sleep(60)
+        except Exception as e:
+            print(f"[SCHEDULER] 异常: {e}")
+            time.sleep(60)
+
+
 def main():
-    port = 8080
+    port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), PharmaPulseHandler)
 
     print("=" * 50)
-    print("  PharmaPulse Local Server")
+    print("  PharmaPulse Local Server (同步自线上版本)")
     print("=" * 50)
     print(f"  URL:  http://localhost:{port}")
     print(f"  Root: {ROOT_DIR}")
+    print(f"  Web:  {WEB_DIR}")
+    print(f"  Data: {DATA_DIR}")
     print(f"  API:  POST /api/refresh")
     print(f"  API:  GET  /api/status")
+    print(f"  CRON: 每天北京时间 07:00 自动刷新")
     print("=" * 50)
     print("  Press Ctrl+C to stop\n")
+
+    # 启动定时刷新后台线程
+    scheduler = threading.Thread(target=scheduled_refresh_loop, daemon=True)
+    scheduler.start()
 
     try:
         server.serve_forever()
