@@ -5,23 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PharmaPulse - 医药行业全球动向日报</title>
   <meta name="description" content="每日自动聚合全球医药行业资讯，AI生成中文摘要，覆盖FDA/EMA政策、临床研究、企业动态、市场动向。">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/web/css/style.css">
+  <link rel="alternate" type="application/rss+xml" title="PharmaPulse RSS" href="/web/rss.xml">
 </head>
 <body>
 
   <!-- 顶部导航 -->
   <header class="header">
     <div class="container header-inner">
-      <a href="/" class="logo">
+      <a href="/web/index.html" class="logo">
         <span class="logo-icon">💊</span>
         <span class="logo-text">PharmaPulse</span>
       </a>
       <nav class="nav">
-        <a href="/" class="nav-link active">今日日报</a>
-        <a href="/archive.html" class="nav-link">历史归档</a>
-        <a href="/about.html" class="nav-link">关于</a>
+        <a href="/web/index.html" class="nav-link active">今日日报</a>
+        <a href="/web/literature.html" class="nav-link">文献检索</a>
+        <a href="/web/archive.html" class="nav-link">历史归档</a>
+        <a href="/web/about.html" class="nav-link">关于</a>
       </nav>
       <div class="header-actions">
+        <button class="btn-theme-toggle" id="themeToggle" title="切换暗色/亮色模式" aria-label="切换主题">🌓</button>
         <div class="date-nav">
           <button class="date-nav-btn" id="prevDay" title="前一天 (←)">◀</button>
           <input type="date" id="datePicker" class="date-picker" title="选择日期">
@@ -30,6 +33,7 @@
         <button class="btn btn-refresh" id="refreshBtn" title="刷新数据（运行数据流水线）">
           <span class="refresh-icon">🔄</span> 刷新数据
         </button>
+        <a href="/web/subscribe.html" class="btn btn-subscribe">订阅日报</a>
       </div>
       <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="菜单">
         <span></span><span></span><span></span>
@@ -37,9 +41,11 @@
     </div>
     <!-- 移动端菜单 -->
     <div class="mobile-menu" id="mobileMenu">
-      <a href="/" class="nav-link active">今日日报</a>
-      <a href="/archive.html" class="nav-link">历史归档</a>
-      <a href="/about.html" class="nav-link">关于</a>
+      <a href="/web/index.html" class="nav-link active">今日日报</a>
+      <a href="/web/literature.html" class="nav-link">文献检索</a>
+      <a href="/web/archive.html" class="nav-link">历史归档</a>
+      <a href="/web/about.html" class="nav-link">关于</a>
+      <a href="/web/subscribe.html" class="nav-link">订阅日报</a>
     </div>
   </header>
 
@@ -200,9 +206,14 @@
       <div class="footer-links">
         <div class="footer-col">
           <h4>导航</h4>
-          <a href="/">今日日报</a>
-          <a href="/archive.html">历史归档</a>
-          <a href="/about.html">关于我们</a>
+          <a href="/web/index.html">今日日报</a>
+          <a href="/web/archive.html">历史归档</a>
+          <a href="/web/about.html">关于我们</a>
+        </div>
+        <div class="footer-col">
+          <h4>订阅</h4>
+          <a href="/web/subscribe.html">邮件订阅</a>
+          <a href="/web/rss.xml">RSS Feed</a>
         </div>
       </div>
       <div class="footer-bottom">
@@ -248,6 +259,24 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=2"></script>
+  <script>
+    // 暗色模式初始化（避免闪烁）
+    (function(){
+      var t = localStorage.getItem('pp-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      document.addEventListener('DOMContentLoaded', function(){
+        var btn = document.getElementById('themeToggle');
+        if(btn){ btn.textContent = t === 'dark' ? '☀️' : '🌓'; }
+        if(btn){ btn.addEventListener('click', function(){
+          var c = document.documentElement.getAttribute('data-theme') || 'light';
+          var n = c === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', n);
+          localStorage.setItem('pp-theme', n);
+          btn.textContent = n === 'dark' ? '☀️' : '🌓';
+        }); }
+      });
+    })();
+  </script>
+  <script src="/web/js/app.js?v=2"></script>
 </body>
 </html>

@@ -158,7 +158,7 @@
     if (currentArticleType) params.set("article_type", currentArticleType);
 
     try {
-      const resp = await fetch((window.PHARMA_API_BASE || "") + `/api/pubmed/search?${params}`);
+      const resp = await fetch(`/api/pubmed/search?${params}`);
       const data = await resp.json();
       if (!data.ok) throw new Error(data.error || "搜索失败");
       totalCount = data.total;
@@ -352,7 +352,7 @@
 
     // 降级：后端代理
     try {
-      const resp = await fetch((window.PHARMA_API_BASE || "") + `/api/pubmed/article/${encodeURIComponent(paperId)}`);
+      const resp = await fetch(`/api/pubmed/article/${encodeURIComponent(paperId)}`);
       const data = await resp.json();
       if (!data.ok) throw new Error(data.error || "加载失败");
       renderModal(data.article);
@@ -516,7 +516,7 @@ ${refsHtml}`;
   // ── 趋势图 ───────────────────────────────────────
   async function fetchTrends(forceRedraw = false, attempt = 0) {
     try {
-      const resp = await fetch((window.PHARMA_API_BASE || "") + `/api/pubmed/trends?q=${encodeURIComponent(currentQuery)}`);
+      const resp = await fetch(`/api/pubmed/trends?q=${encodeURIComponent(currentQuery)}`);
       const data = await resp.json();
       if (!data.ok) return;
 

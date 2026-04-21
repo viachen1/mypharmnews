@@ -821,7 +821,7 @@
     refreshElapsedTimer = setInterval(updateElapsed, 1000);
 
     // 调用 API
-    fetch("/api/refresh", {
+    fetch((window.PHARMA_API_BASE || "") + "/api/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ skip_ai: skipAi }),
@@ -849,7 +849,7 @@
   }
 
   function pollStatus() {
-    fetch("/api/status")
+    fetch((window.PHARMA_API_BASE || "") + "/api/status")
       .then(function (resp) { return resp.json(); })
       .then(function (status) {
         if (dom.refreshStatus) {

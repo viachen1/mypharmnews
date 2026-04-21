@@ -1,7 +1,8 @@
 """
-PharmaPulse - CloudRun 容器版服务器
-提供静态文件服务 + 数据刷新 API
-端口: 8080
+PharmaPulse - 本地开发服务器（同步自线上版本）
+提供静态文件服务 + 数据刷新 API + 定时刷新
+启动: python server.py
+访问: http://localhost:8080
 """
 
 import json
@@ -10,9 +11,11 @@ import sys
 import threading
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
-# UTF-8 输出
+# Windows 控制台 UTF-8 输出
+if sys.platform == "win32":
+    os.system("")  # enable ANSI on Windows
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -103,7 +106,7 @@ def run_pipeline(skip_ai=False):
 
         # ── Step 3: AI Summary ──
         if skip_ai:
-            pipeline_status["progress"] = "[3/4] Skipping AI summaries (fast mode)..."
+            pipeline_status["progress"] = f"[3/4] Skipping AI summaries (fast mode)..."
             for a in processed:
                 a["summary_zh"] = f"(Summary pending) {a['title'][:80]}"
         else:
@@ -111,7 +114,7 @@ def run_pipeline(skip_ai=False):
             from ai_summary import batch_generate_summaries
             processed = batch_generate_summaries(processed)
 
-        pipeline_status["progress"] = "[3/4] Summaries done"
+        pipeline_status["progress"] = f"[3/4] Summaries done"
 
         # ── Step 4: Output JSON + Index ──
         pipeline_status["progress"] = "[4/4] Generating JSON output..."
@@ -141,7 +144,6 @@ def run_pipeline(skip_ai=False):
 class PharmaPulseHandler(SimpleHTTPRequestHandler):
     """自定义请求处理器：静态文件 + API
     
-    容器部署版本：
     - /data/* → 从 data/ 目录提供 JSON 数据
     - /api/*  → API 接口
     - /*      → 从 web/ 目录提供前端静态文件
@@ -150,10 +152,25 @@ class PharmaPulseHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        qs = parse_qs(parsed.query)
 
         # API: 获取流水线状态
         if path == "/api/status":
             self._json_response(pipeline_status)
+            return
+
+        # ── PubMed API 路由 ──────────────────────────────────
+        if path == "/api/pubmed/search":
+            self._handle_pubmed_search(qs)
+            return
+
+        if path.startswith("/api/pubmed/article/"):
+            pmid = path[len("/api/pubmed/article/"):].strip("/")
+            self._handle_pubmed_article(pmid)
+            return
+
+        if path == "/api/pubmed/trends":
+            self._handle_pubmed_trends(qs)
             return
 
         # /data/* → 从 data/ 目录提供文件
@@ -169,8 +186,16 @@ class PharmaPulseHandler(SimpleHTTPRequestHandler):
             self._serve_file(file_path, "text/html; charset=utf-8")
             return
 
+        # /web/* → 从 web/ 目录提供静态文件（剥离 /web/ 前缀）
+        if path.startswith("/web/"):
+            rel_path = path[len("/web/"):]
+            file_path = os.path.join(WEB_DIR, rel_path)
+            if os.path.isfile(file_path):
+                content_type = self._guess_type(file_path)
+                self._serve_file(file_path, content_type)
+                return
+
         # 尝试从 web/ 目录提供静态文件
-        # 去掉开头的 /
         rel_path = path.lstrip("/")
         file_path = os.path.join(WEB_DIR, rel_path)
 
@@ -224,6 +249,97 @@ class PharmaPulseHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
+
+    def _handle_pubmed_search(self, qs: dict):
+        """GET /api/pubmed/search — 搜索文献（Semantic Scholar）"""
+        try:
+            if SCRIPTS_DIR not in sys.path:
+                sys.path.insert(0, SCRIPTS_DIR)
+            from semantic_scholar_api import search
+
+            q = qs.get("q", [""])[0].strip()
+            if not q:
+                self._json_response({"error": "缺少参数 q"}, 400)
+                return
+
+            page     = int(qs.get("page", ["1"])[0])
+            per_page = int(qs.get("per_page", ["20"])[0])
+            date_from = qs.get("date_from", [""])[0][:4]   # 只取年份
+            date_to   = qs.get("date_to",   [""])[0][:4]
+            # article_type 映射到 fieldsOfStudy
+            article_type = qs.get("article_type", [""])[0]
+            fields_map = {
+                "review": "Medicine",
+                "clinical trial": "Medicine",
+                "meta-analysis": "Medicine",
+            }
+            fields_of_study = fields_map.get(article_type, "")
+
+            result = search(
+                query=q,
+                page=page,
+                per_page=per_page,
+                year_from=date_from,
+                year_to=date_to,
+                fields_of_study=fields_of_study,
+            )
+            self._json_response({"ok": True, **result})
+        except Exception as e:
+            self._json_response({"ok": False, "error": str(e)}, 500)
+
+    def _handle_pubmed_article(self, paper_id: str):
+        """GET /api/pubmed/article/<paper_id> — 获取文献详情（Semantic Scholar）"""
+        if not paper_id:
+            self._json_response({"error": "无效的 paper_id"}, 400)
+            return
+        try:
+            if SCRIPTS_DIR not in sys.path:
+                sys.path.insert(0, SCRIPTS_DIR)
+            from semantic_scholar_api import get_paper
+            article = get_paper(paper_id)
+            self._json_response({"ok": True, "article": article})
+        except Exception as e:
+            self._json_response({"ok": False, "error": str(e)}, 500)
+
+    def _handle_pubmed_trends(self, qs: dict):
+        """GET /api/pubmed/trends — 获取关键词近 10 年发文量趋势（Semantic Scholar）"""
+        try:
+            if SCRIPTS_DIR not in sys.path:
+                sys.path.insert(0, SCRIPTS_DIR)
+            from semantic_scholar_api import get_trends, _cache_get
+
+            q = qs.get("q", [""])[0].strip()
+            if not q:
+                self._json_response({"error": "缺少参数 q"}, 400)
+                return
+
+            years = int(qs.get("years", ["10"])[0])
+
+            # 先检查缓存，有就立即返回
+            from datetime import datetime as _dt
+            cache_key = f"trends|{q}|{years}|{_dt.now().year}"
+            cached = _cache_get(cache_key)
+            if cached:
+                self._json_response({"ok": True, "query": q, "trends": cached, "cached": True})
+                return
+
+            # 没有缓存：在后台线程里跑，本次先返回 pending
+            # 前端会在收到 pending 后等 3 秒再重新请求
+            def _run():
+                try:
+                    get_trends(q, years)
+                except Exception:
+                    pass
+            t = threading.Thread(target=_run, daemon=True)
+            t.start()
+
+            self._json_response({"ok": True, "query": q, "trends": None, "pending": True})
+        except Exception as e:
+            self._json_response({"ok": False, "error": str(e)}, 500)
+
+
+
+
 
     def _serve_file(self, file_path, content_type):
         """提供文件内容"""
@@ -314,9 +430,9 @@ def main():
     server = HTTPServer(("0.0.0.0", port), PharmaPulseHandler)
 
     print("=" * 50)
-    print("  PharmaPulse Server (CloudRun)")
+    print("  PharmaPulse Local Server (同步自线上版本)")
     print("=" * 50)
-    print(f"  Port: {port}")
+    print(f"  URL:  http://localhost:{port}")
     print(f"  Root: {ROOT_DIR}")
     print(f"  Web:  {WEB_DIR}")
     print(f"  Data: {DATA_DIR}")
@@ -324,6 +440,7 @@ def main():
     print(f"  API:  GET  /api/status")
     print(f"  CRON: 每天北京时间 07:00 自动刷新")
     print("=" * 50)
+    print("  Press Ctrl+C to stop\n")
 
     # 启动定时刷新后台线程
     scheduler = threading.Thread(target=scheduled_refresh_loop, daemon=True)

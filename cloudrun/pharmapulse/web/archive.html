@@ -4,31 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>历史归档 - PharmaPulse</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/web/css/style.css">
 </head>
 <body>
 
   <!-- 顶部导航 -->
   <header class="header">
     <div class="container header-inner">
-      <a href="/" class="logo">
+      <a href="/web/index.html" class="logo">
         <span class="logo-icon">💊</span>
         <span class="logo-text">PharmaPulse</span>
       </a>
       <nav class="nav">
-        <a href="/" class="nav-link">今日日报</a>
-        <a href="/archive.html" class="nav-link active">历史归档</a>
-        <a href="/about.html" class="nav-link">关于</a>
+        <a href="/web/index.html" class="nav-link">今日日报</a>
+        <a href="/web/literature.html" class="nav-link">文献检索</a>
+        <a href="/web/archive.html" class="nav-link active">历史归档</a>
+        <a href="/web/about.html" class="nav-link">关于</a>
       </nav>
-      <div class="header-actions"></div>
+      <div class="header-actions">
+        <button class="btn-theme-toggle" id="themeToggle" title="切换暗色/亮色模式" aria-label="切换主题">🌓</button>
+        <a href="/web/subscribe.html" class="btn btn-subscribe">订阅日报</a>
+      </div>
       <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="菜单">
         <span></span><span></span><span></span>
       </button>
     </div>
     <div class="mobile-menu" id="mobileMenu">
-      <a href="/" class="nav-link">今日日报</a>
-      <a href="/archive.html" class="nav-link active">历史归档</a>
-      <a href="/about.html" class="nav-link">关于</a>
+      <a href="/web/index.html" class="nav-link">今日日报</a>
+      <a href="/web/literature.html" class="nav-link">文献检索</a>
+      <a href="/web/archive.html" class="nav-link active">历史归档</a>
+      <a href="/web/about.html" class="nav-link">关于</a>
+      <a href="/web/subscribe.html" class="nav-link">订阅日报</a>
     </div>
   </header>
 
@@ -92,7 +98,7 @@
       if (archiveGoBtn) {
         archiveGoBtn.addEventListener("click", function () {
           var d = archiveDate.value;
-          if (d) window.location.href = "/?date=" + d;
+          if (d) window.location.href = "/web/index.html?date=" + d;
         });
       }
 
@@ -106,8 +112,8 @@
           renderArchiveList(indexData);
         })
         .catch(function (err) {
-          console.warn("索引加载失败:", err.message);
-          archiveList.innerHTML = '<p style="color: var(--text-muted);">暂无历史数据</p>';
+          console.warn("索引加载失败，回退到逐个扫描:", err.message);
+          fallbackScan();
         });
 
       function renderArchiveList(indexData) {
@@ -140,7 +146,7 @@
             var displayDate = (d.getMonth() + 1) + "月" + d.getDate() + "日 " + weekdays[d.getDay()];
 
             return (
-              '<a href="/?date=' + date + '" class="archive-item">' +
+              '<a href="/web/index.html?date=' + date + '" class="archive-item">' +
                 '<div>' +
                   '<span class="archive-item-date">' + date + '</span>' +
                   '<span style="font-size:0.8rem; color:var(--text-muted); margin-left:8px;">' + displayDate + '</span>' +
@@ -156,6 +162,56 @@
           })
           .join("");
       }
+
+      // 回退方案: 逐个扫描最近30天的数据文件
+      function fallbackScan() {
+        var dates = [];
+        for (var i = 0; i < 30; i++) {
+          var d = new Date(utc8.getTime() - i * 86400000);
+          dates.push(d.toISOString().slice(0, 10));
+        }
+
+        var found = [];
+        var checked = 0;
+
+        dates.forEach(function (dateStr) {
+          fetch("/data/" + dateStr + ".json", { method: "HEAD" })
+            .then(function (resp) {
+              if (resp.ok) found.push(dateStr);
+            })
+            .catch(function () {})
+            .finally(function () {
+              checked++;
+              if (checked === dates.length) {
+                found.sort().reverse();
+                if (archiveCount) archiveCount.textContent = "共 " + found.length + " 天";
+                if (found.length === 0) {
+                  archiveList.innerHTML = '<p style="color: var(--text-muted);">暂无历史数据</p>';
+                  return;
+                }
+                archiveList.innerHTML = found
+                  .map(function (d) {
+                    return (
+                      '<a href="/web/index.html?date=' + d + '" class="archive-item">' +
+                        '<span class="archive-item-date">' + d + "</span>" +
+                        '<span class="archive-item-count">查看日报 →</span>' +
+                      "</a>"
+                    );
+                  })
+                  .join("");
+              }
+            });
+        });
+      }
+    })();
+  </script>
+  <script>
+    // 暗色模式
+    (function(){
+      var t=localStorage.getItem('pp-theme')||'light';
+      document.documentElement.setAttribute('data-theme',t);
+      var btn=document.getElementById('themeToggle');
+      if(btn){btn.textContent=t==='dark'?'☀️':'🌓';btn.addEventListener('click',function(){var c=document.documentElement.getAttribute('data-theme')||'light';var n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('pp-theme',n);btn.textContent=n==='dark'?'☀️':'🌓';});}
     })();
   </script>
 </body>
