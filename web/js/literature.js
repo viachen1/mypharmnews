@@ -143,13 +143,19 @@
   async function fetchArticles() {
     showState("loading");
 
-    // 优先前端直连
+    // 线上强制前端直连 / 本地优先前端直连
     try {
       await fetchArticlesDirect();
       return;
-    } catch (_) { /* 直连失败，走后端 */ }
+    } catch (directErr) {
+      // 前端直连失败，若是线上强制模式直接报错；本地降级走后端
+      if (window.PHARMA_FORCE_DIRECT) {
+        showState("error", "文献检索暂时不可用，请稍后重试（" + directErr.message + "）");
+        return;
+      }
+    }
 
-    // 降级：后端代理
+    // 本地降级：后端代理
     const params = new URLSearchParams({
       q: currentQuery, page: currentPage, per_page: PER_PAGE,
     });
@@ -348,9 +354,14 @@
       const raw = await resp.json();
       renderModal(normalizePaper(raw, true));
       return;
-    } catch (_) { /* 前端直连失败，降级走后端 */ }
+    } catch (directErr) {
+      if (window.PHARMA_FORCE_DIRECT) {
+        dom.modalBody.innerHTML = `<div class="error-state"><div class="error-icon">⚠️</div><p class="error-title">加载失败</p><p class="error-msg">${esc(directErr.message)}</p><p style="margin-top:8px;font-size:0.8rem;color:var(--text-muted)">可直接在 <a href="https://www.semanticscholar.org/paper/${esc(paperId)}" target="_blank">Semantic Scholar</a> 查看</p></div>`;
+        return;
+      }
+    }
 
-    // 降级：后端代理
+    // 本地降级：后端代理
     try {
       const resp = await fetch((window.PHARMA_API_BASE || "") + `/api/pubmed/article/${encodeURIComponent(paperId)}`);
       const data = await resp.json();
